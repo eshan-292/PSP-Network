@@ -210,8 +210,9 @@ def UDPClientSocketCreate(ind, port):
 
     UDPClientSocket.sendto(str.encode(str(ind)), port)
     server_message = UDPClientSocket.recvfrom(bufferSize)
-    #if int(server_message.decode()) ==1:
-        #UDPClientSocket.sendto(str(client_no).encode(), port)
+    
+
+    # Terminating condition
 
 
 
@@ -241,7 +242,7 @@ def TCPServerSocketFinal(client_no,port):
         connectionSocket.send(str(1).encode())
         message = connectionSocket.recv(bufferSize).decode()
 
-        if (message == str(-1)):
+        if (index == -1):
             break
         #lock.acquire()
         print("HERE")
@@ -256,8 +257,6 @@ def TCPServerSocketFinal(client_no,port):
 
         connectionSocket, addr = TCPServerSocket.accept()
         message1 = connectionSocket.recv(bufferSize).decode()
-        while(message1 == ""):
-            message1 = connectionSocket.recv(bufferSize).decode()
         print("message1: ", message1)
         
         
@@ -278,17 +277,17 @@ for client_no in range(1,1+noOfThreads):
 flag = 0
 
 for client_no in range(1,1+noOfThreads):
+    last_chunk_index = 0
     for i in range(total_chunks_no):
-    
         flag = 0
-    
+        
         if (client_recd_chunks_dict[client_no][i] == 0):
 
             # y = threading.Thread(target=TCPServerSocketFinal, args=(client_no, i+1,localPort + (10*(client_no-1)),))
             # threads.append(y)
             # y.start()
 
-            
+            last_chunk_index = i 
             #print("Client Number : ", client_no, " is about to request chunk no ", i+1 ) 
             x = threading.Thread(target=UDPClientSocketCreate, args=(i+1,(serverAddressPort[0],serverAddressPort[1] + (10*(client_no-1))),))
             threads.append(x)
@@ -298,7 +297,27 @@ for client_no in range(1,1+noOfThreads):
 
             #break 
 
-    
+
+
+for client_no in range(1,1+noOfThreads):
+    while(True):
+        flag= 0
+        for i in range(total_chunks_no):
+            if (client_recd_chunks_dict[client_no][i] == 0):
+                flag=1
+                break
+        if flag==0:
+            x = threading.Thread(target=UDPClientSocketCreate, args=(-1,(serverAddressPort[0],serverAddressPort[1] + (10*(client_no-1))),))
+            threads.append(x)
+            x.start()
+            break
+        
+        #if(len(client_recd_chunks_dict[client_no]) == total_chunks_no):
+
+        # x = threading.Thread(target=UDPClientSocketCreate, args=(i+1,(serverAddressPort[0],serverAddressPort[1] + (10*(client_no-1))),))
+        # threads.append(x)
+        # x.start()
+
         
         
 print("THE END")

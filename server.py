@@ -215,7 +215,13 @@ def TCPClientSocketFinal(client_no, index, port,CHUNK_SIZE):
 
     message = TCPClientSocket.recv(bufferSize).decode()
 
+
+
     print("RECEIVED ACK FROM CLIENT NO: ", client_no, " FOR INDEX OF CHUNK NO: ", index)
+
+    if index == -1:
+        TCPClientSocket.close()
+        return
     #message = int(message)
     # if message != 1:
     #     print("Packet Lost Connection closed ")
@@ -235,7 +241,7 @@ def TCPClientSocketFinal(client_no, index, port,CHUNK_SIZE):
     #     TCPClientSocket.send(str(-1).encode())
         
     TCPClientSocket.close()
-    return
+    
 
 
 
@@ -313,8 +319,7 @@ def UDPServerSocketCreate(client_no, port):
         #cl_no = int(bytesAddressPair[0])
         #address = bytesAddressPair[1]
 
-        if index == -1:
-            break
+        
 
         print("Index requested: ", index, ", By Client Number: ", client_no)
         #print("Client Number: ", cl_no)
@@ -327,7 +332,12 @@ def UDPServerSocketCreate(client_no, port):
         
         TCPClientSocketFinal(client_no, index, serverPort + 10*(client_no-1),2048)       
 
+        
+
         UDPServerSocket.sendto(str(1).encode(), address)        #Sending acknowledgment to client for sending complete data for requested chunk
+
+        if index == -1:
+            break
 
 
 
