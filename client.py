@@ -109,45 +109,10 @@ def TCPClientSocketCreateInit(client_no, port,CHUNK_SIZE):
 
 
 
-    # INITIALISATION FINISHED
-
-
-
-    # # REQUESTING REMAINING CHUNKS FROM SERVER
-
-    # for i in range(n):
-    #     if (recd_chunks[i] == 0):
-    #         TCPClientSocket.send(str(i+1).encode())
-    #         #server_message = TCPClientSocket.recv(CHUNK_SIZE)        # Receiving chunk index
-    #         #TCPClientSocket.send(str(1).encode())
-    #         server_message = TCPClientSocket.recv(CHUNK_SIZE)        # Receiving chunk data
-    #         TCPClientSocket.send(str(1).encode())
-    #         recd_chunks[i] = 1        # Marking the chunk_no to be received 
-    #         chunks_dict[i+1] = server_message.decode()
-    #         print('From Server: Received Chunk:',  i+1)
-    #         print('From Server: ',  server_message.decode())
-
-    #     else:
-    #         print("Chunk:", i) 
-    #         print("Chunk Data", chunks_dict[i+1] )
-
-
-    #TCPClientSocket.send(str(-1).encode())
         
     TCPClientSocket.close()
    
 
-
-
-    # for i in range(1,6):
-
-    #     TCPClientSocket.send(str(i).encode())
-    #     server_message = TCPClientSocket.recv(1024)
-    #     print('From Server: ', server_message.decode())
-
-    # TCPClientSocket.send(str(-1).encode())
-    # TCPClientSocket.close()
-   
 
 
 print( "CHUNKS DICT DICT: " , client_chunks_dict_dict)
@@ -156,7 +121,7 @@ print("RECD CHUNKS DICT", client_recd_chunks_dict)
 
 
 threads =[]
-startTime = time.time()
+startTime = time.time()     #START TIME
 noOfThreads = 5
 
 for i in range(noOfThreads):   
@@ -168,7 +133,10 @@ for i in range(noOfThreads):
 for i in range(noOfThreads):
     threads[i].join()
     
-endTime = time.time()
+
+
+
+
 
 
 #INITIALISATION OF CLIENTS ENDS
@@ -178,11 +146,8 @@ endTime = time.time()
 
 
 
-# UDP STARTS FOR SENDING REQUESTS FOR MISSING CHUNKS TO SERVER
 
 
-
-#UDP SOCKET
 
 
 serverAddressPort   = ("127.0.0.1", 50000)
@@ -197,6 +162,69 @@ localPort   = 35000
 
 
 
+
+# LISTENING TO BROADCASTS
+
+# BROADCASTING CLIENTS - each client listens for broadcast messages from server\
+
+
+base_port = 10000
+
+import socket
+
+def TCPBroadcast(client_no, port):
+    TCPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
+    #TCPServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    TCPServerSocket.bind((localIP, port))
+
+
+    TCPServerSocket.listen(5)   # Parameter is the number of unaccepted connections that the system will allow before refusing new connections
+    print("TCP server up and listening")
+
+    
+    connectionSocket, addr = TCPServerSocket.accept()
+
+    message = connectionSocket.recv(bufferSize).decode()    # Message would be the index required by the server
+
+    while(True):
+
+        # connectionSocket, addr = TCPServerSocket.accept()
+
+        # message = connectionSocket.recv(bufferSize).decode()    # Message would be the index required by the server
+
+        index = int(message)
+        print("REQUESTED INDEX: ", index)
+        if index==-1:
+            break
+
+        if index in client_chunks_dict_dict[client_no].keys():
+            print("Chunk found in client ", client_no)
+            connectionSocket.send(str(1).encode())      # Sending 1 to indicate that the chunk is found
+            message = connectionSocket.recv(bufferSize).decode()  #Acknowledgenment from server that it has received the 1 
+            connectionSocket.send(client_chunks_dict_dict[client_no][index].encode())     # Sending the chunk data
+        else:
+            connectionSocket.send(str(-1).encode())      #Sending -1 to indicate that the chunk is not found
+        
+
+        connectionSocket, addr = TCPServerSocket.accept()
+
+        message = connectionSocket.recv(bufferSize).decode()    # Message would be the index required by the server
+    
+    
+    print("Broadcast connection closed with ",addr)
+    connectionSocket.close()   
+
+
+#BROADCAST TCP THREADS
+for client_no in range(1,1+noOfThreads):
+    y = threading.Thread(target=TCPBroadcast, args=(client_no,base_port + (10*(client_no-1)),))
+    threads.append(y)
+    y.start()    
+
+
+
+#UDP SOCKET FOR SENDING REQUESTS FOR REMAINING CHUNKS
+
 def UDPClientSocketCreate(ind, port):
     # Create a UDP socket at client side
     UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
@@ -209,16 +237,25 @@ def UDPClientSocketCreate(ind, port):
     # # REQUESTING REMAINING CHUNKS FROM SERVER
 
     UDPClientSocket.sendto(str.encode(str(ind)), port)
-    server_message = UDPClientSocket.recvfrom(bufferSize)
     
+    # RECEIVING ACKNOWLEDGEMENT FROM SERVER
+    bytesAddressPair = UDPClientSocket.recvfrom(bufferSize)
+    server_message = int(bytesAddressPair[0])
+    
+    # HANDLING THE CASE OF PACKET LOSS
+    while(server_message != 1):
+        UDPClientSocket.sendto(str.encode(str(ind)), port)
+        bytesAddressPair = UDPClientSocket.recvfrom(bufferSize)
+        server_message = int(bytesAddressPair[0])
 
-    # Terminating condition
+
+    
 
 
 
 def TCPServerSocketFinal(client_no,port):
     TCPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-    #TCPServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+    TCPServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
     TCPServerSocket.bind((localIP, port))
 
 
@@ -240,10 +277,12 @@ def TCPServerSocketFinal(client_no,port):
 
         index = int(message1)
         connectionSocket.send(str(1).encode())
-        message = connectionSocket.recv(bufferSize).decode()
-
         if (index == -1):
             break
+        
+        message = connectionSocket.recv(bufferSize).decode()
+
+        
         #lock.acquire()
         print("HERE")
         global client_chunks_dict_dict
@@ -264,11 +303,11 @@ def TCPServerSocketFinal(client_no,port):
 
 
 
-    print("connection closed with ",addr)
+    print("TCP connection closed with ",addr)
     connectionSocket.close()   
     
 
-
+#TCP FINAL THREADS
 for client_no in range(1,1+noOfThreads):
     y = threading.Thread(target=TCPServerSocketFinal, args=(client_no,localPort + (10*(client_no-1)),))
     threads.append(y)
@@ -276,6 +315,9 @@ for client_no in range(1,1+noOfThreads):
 
 flag = 0
 
+
+
+# THREADS FOR SENDING UDP REQUESTS FOR MISSING CHUNKS TO SERVER
 for client_no in range(1,1+noOfThreads):
     last_chunk_index = 0
     for i in range(total_chunks_no):
@@ -296,203 +338,36 @@ for client_no in range(1,1+noOfThreads):
             flag = 1
 
             #break 
+        
 
 
 
-for client_no in range(1,1+noOfThreads):
-    while(True):
-        flag= 0
+
+# Terminating condition - when all the chunks are received by all clients
+
+while(True):
+    flag = 0
+    for client_no in range(1,1+noOfThreads):
         for i in range(total_chunks_no):
             if (client_recd_chunks_dict[client_no][i] == 0):
                 flag=1
                 break
-        if flag==0:
+    if flag==0:
+        #Sending termination message for each client to the server
+        for client_no in range(1,1+noOfThreads):
             x = threading.Thread(target=UDPClientSocketCreate, args=(-1,(serverAddressPort[0],serverAddressPort[1] + (10*(client_no-1))),))
             threads.append(x)
             x.start()
-            break
-        
-        #if(len(client_recd_chunks_dict[client_no]) == total_chunks_no):
-
-        # x = threading.Thread(target=UDPClientSocketCreate, args=(i+1,(serverAddressPort[0],serverAddressPort[1] + (10*(client_no-1))),))
-        # threads.append(x)
-        # x.start()
-
-        
+        break
         
 print("THE END")
 
 
-# #UDP SOCKET
 
+endTime = time.time()
 
-# serverAddressPort   = ("127.0.0.1", 50000)
-# bufferSize          = 2048
+for client_no in range(1,1+noOfThreads):
+    print("No of chunks recd by client ", client_no, "is : ", sum(client_recd_chunks_dict[client_no]))
 
-# import socket
-
-
-
-
-
-
-
-
-
-
-# def UDPClientSocketCreate(client_no, port):
-#     # Create a UDP socket at client side
-#     UDPClientSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_DGRAM)
-#     #\UDPClientSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-#     UDPClientSocket.bind(("127.0.0.1",0))   
-
-
-
-
-#     # # REQUESTING REMAINING CHUNKS FROM SERVER
-
-#     for i in range(total_chunks_no):
-#         if (client_recd_chunks_dict[client_no][i] == 0):
-#             UDPClientSocket.sendto(str.encode(str(i+1)), port)
-#             server_message = UDPClientSocket.recvfrom(bufferSize)
-#             #if int(server_message.decode()) ==1:
-#             UDPClientSocket.sendto(str(client_no).encode(), port)
-#                 #server_message = UDPClientSocket.recvfrom(bufferSize)
-
-#             break 
-#             #UDPClientSocket.sendto(str(1).encode(), serverAddressPort)
-
-            
-#             #client_recd_chunks_dict[client_no][i] = 1        # Marking the chunk_no to be received 
-#             #client_chunks_dict_dict[client_no][i+1] = server_message.decode()
-#             #print('From Server: Received Chunk:',  i+1)
-#             #print('From Server: ',  server_message.decode())
-    
-
-
-#     # # # REQUESTING REMAINING CHUNKS FROM SERVER
-
-#     # for i in range(1):
-#     #     #if (client_recd_chunks_dict[client_no][i] == 0):
-#     #     UDPClientSocket.sendto(str.encode(str(i+1)), port)
-#     #     server_message = UDPClientSocket.recvfrom(bufferSize)
-#     #         #if int(server_message.decode()) ==1:
-#     #     UDPClientSocket.sendto(str(client_no).encode(), port)
-#     #             #server_message = UDPClientSocket.recvfrom(bufferSize)
-
-        
-#     #         #UDPClientSocket.sendto(str(1).encode(), serverAddressPort)
-
-            
-#     #         #client_recd_chunks_dict[client_no][i] = 1        # Marking the chunk_no to be received 
-#     #         #client_chunks_dict_dict[client_no][i+1] = server_message.decode()
-#     #         #print('From Server: Received Chunk:',  i+1)
-#     #         #print('From Server: ',  server_message.decode())
-
-
-
-
-
-
-
-
-
-# threads =[]
-# startTime = time.time()
-# noOfThreads = 5
-
-
-# client_chunk_dict = []
-# for i in range(noOfThreads):   
-#     x = threading.Thread(target=UDPClientSocketCreate, args=(i+1,(serverAddressPort[0],serverAddressPort[1] + (10*i)),))
-#     threads.append(x)
-#     x.start()
-    
-# endTime = time.time()
-
-# for i in range(noOfThreads):
-#     threads[i].join()
-
-
-# # hash = hashlib.md5(open("./A2_small_file.txt", 'r').read().encode()).hexdigest()
-# # print("md5 sum:",hash)
-
-
-
-# #UDP ENDS
-
-
-
-
-# from socket import socket
-
-
-# #TCP Server 
-
-
-
-# # TCP STARTS FOR DISTRIBUTING REQUESTED CHUNKS TO CLIENTS
-
-
-
-
-
-# #TCP SOCKET
-
-# localIP     = "127.0.0.1"
-# localPort   = 35000
-
-# bufferSize = 2048
-
-
-
-
-# def TCPServerSocketFinal(client_no,port):
-#     TCPServerSocket = socket.socket(family=socket.AF_INET, type=socket.SOCK_STREAM)
-#     TCPServerSocket.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
-#     TCPServerSocket.bind((localIP, port))
-
-
-#     TCPServerSocket.listen(5)   # Parameter is the number of unaccepted connections that the system will allow before refusing new connections
-#     print("TCP server up and listening")
-
-#     connectionSocket, addr = TCPServerSocket.accept()
-
-#     # #Sending the requested remaining chunks to client
-
-#     message = connectionSocket.recv(bufferSize).decode()
-#     while(message):
-#         message = int(message)
-#         if message != -1:
-#             connectionSocket.send(chunks_dict[message].encode())
-#             message = connectionSocket.recv(bufferSize).decode()
-#             message = int(message)
-#             if message != 1:
-#                 print("Packet Lost Connection closed with ",addr)
-#                 connectionSocket.close()
-#                 break
-#             message = connectionSocket.recv(bufferSize).decode()
-#         else:
-#             break 
-    
-
-#     print("connection closed with ",addr)
-#     connectionSocket.close()   
-
-# threads =[]
-# startTime = time.time()
-# noOfThreads = 5
-
-# for i in range(noOfThreads):   
-#     x = threading.Thread(target=TCPServerSocketFinal, args=(i+1,localPort + (10*i),))
-#     threads.append(x)
-#     x.start()
-    
-# endTime = time.time()
-
-# # hash = hashlib.md5(open("./A2_small_file.txt", 'r').read().encode()).hexdigest()
-# # print("md5 sum:",hash)
-
-
-
+print("Total time taken: ", endTime-startTime)
 
