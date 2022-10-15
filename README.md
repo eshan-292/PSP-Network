@@ -23,4 +23,4 @@ In the process that follows, each client operates independently. From now on, ea
 (g) p, on receiving c, adds it to its available chunks. It checks if it now has the complete file. If not, it repeats steps 5.a-5.g.  
 
 
-Explicitly handled packet loss in case of UDP commuication owing to its unreliability. 
+Explicitly handled packet loss in case of UDP communication owing to its unreliability. 
