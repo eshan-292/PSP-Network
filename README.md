@@ -15,7 +15,7 @@ This project is a simplified communication, which passes through a central serve
 In the process that follows, each client operates independently. From now on, each chunk of data exchanged would be of 1 Kilobytes. The simulation ends when each client has obtained all the chunks required to construct the file. The server ‘S’ has a cache installed, following LRU policy 4. This cache has a fixed size of n Kilobytes. S cannot store any other data outside this cache. Following is the process for each client:
 
 (a) Client ‘p’ identifies what chunk of file it doesn’t have. Call it chunk ‘c’.  
-(b) p sends a UDP message to S, requesting c. 
+(b) p sends a UDP message to S, requesting c.   
 (c) S checks its cache for c. If the query results in a hit, it opens up a TCP connection with p and shares c with p.  
 (d) If the cache query results in a miss, the server sends a broadcast 5 to all clients, requesting c.    
 (e) When a client receives a broadcast, it sends c to S through a TCP connection if it has it. If the client does not have the requested chunk, it ignores the broadcast.  
