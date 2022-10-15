@@ -16,8 +16,8 @@ In the process that follows, each client operates independently. From now on, ea
 
 (a) Client ‘p’ identifies what chunk of file it doesn’t have. Call it chunk ‘c’.  
 (b) p sends a UDP message to S, requesting c. 
-(c) S checks its cache for c. If the query results in a hit, it opens up a TCP connection with p and shares c with p. 
-(d) If the cache query results in a miss, the server sends a broadcast 5 to all clients, requesting c.  
+(c) S checks its cache for c. If the query results in a hit, it opens up a TCP connection with p and shares c with p.  
+(d) If the cache query results in a miss, the server sends a broadcast 5 to all clients, requesting c.    
 (e) When a client receives a broadcast, it sends c to S through a TCP connection if it has it. If the client does not have the requested chunk, it ignores the broadcast.  
 (f) S receives c from (possibly) multiple clients. It discards the duplicates, adds c to its cache, and sends it back to p via TCP.  
 (g) p, on receiving c, adds it to its available chunks. It checks if it now has the complete file. If not, it repeats steps 5.a-5.g.  
